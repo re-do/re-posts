@@ -172,25 +172,25 @@ At this point, we also might want to think more about what happens when the defi
 
 <!-- prettier-ignore -->
 ```ts
-type ValidateExpression<Fragment extends string, Root extends string> =
-    // If the expression ends with "?"...
-    Expression extends `${infer Optional}?`
-    // 
-    ? TypeOfExpression<Optional> | undefined
-    // If the expression contains a "|"...
-    : Expression extends `${infer Left}|${infer Right}`
-    // Recurse to infer the type of each half (either is valid).
-    ? TypeOfExpression<Left> | TypeOfExpression<Right>
-    // If the expression ends in "[]"...
-    : Expression extends `${infer Item}[]`
-    // Recurse to infer the type of the inner expression and convert it to a list.
-    ? TypeOfExpression<Item>[]
-    // If the expression is just a keyword...
-    : Expression extends keyof KeywordsToTypes
-    // Use our first generic to infer its type.
-    ? TypeOfKeyword<Expression>
-    // Else, the expression is not something we've defined yet so infer unknown
-    : unknown
+type ValidateExpression<Expression extends string> = ValidateFragment<
+    Expression,
+    Expression
+>
+
+type ValidateFragment<
+    Fragment extends string,
+    Root extends string
+> = Fragment extends `${infer Optional}?`
+    ? ValidateFragment<Optional, Root>
+    : Fragment extends `${infer Right}|${infer Left}`
+    ? ValidateFragment<Right, Root> extends Root
+        ? ValidateFragment<Left, Root>
+        : ValidateFragment<Right, Root>
+    : Fragment extends `${infer Item}[]`
+    ? ValidateFragment<Item, Root>
+    : Fragment extends keyof KeywordsToTypes
+    ? Root
+    : `Error: ${Fragment} is not a valid expression.`
 
 // Typed as string | number[] | undefined
 type Result = TypeOfExpression<`string|number[]?`>

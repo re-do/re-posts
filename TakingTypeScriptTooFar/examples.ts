@@ -53,25 +53,32 @@ type TypeOfExpression<Expression extends string> =
 
 type Result3 = TypeOfExpression<`string|number[]?`>
 
-type ValidateExpression<Fragment extends string, Root extends string> =
-    // If the expression ends with "?"...
-    Fragment extends `${infer Optional}?`
-        ? //
-          TypeOfExpression<Optional> | undefined
-        : // If the expression contains a "|"...
-        Fragment extends `${infer Left}|${infer Right}`
-        ? // Recurse to infer the type of each half (either is valid).
-          TypeOfExpression<Left> | TypeOfExpression<Right>
-        : // If the expression ends in "[]"...
-        Fragment extends `${infer Item}[]`
-        ? // Recurse to infer the type of the inner expression and convert it to a list.
-          TypeOfExpression<Item>[]
-        : // If the expression is just a keyword...
-        Fragment extends keyof KeywordsToTypes
-        ? // Use our first generic to infer its type.
-          TypeOfKeyword<Fragment>
-        : // Else, the expression is not something we've defined yet so infer unknown
-          unknown
+type ValidateExpression<Expression extends string> = ValidateFragment<
+    Expression,
+    Expression
+>
 
-// Typed as string | number[] | undefined
-type Result4 = TypeOfExpression<`string|number[]?`>
+type ValidateFragment<
+    Fragment extends string,
+    Root extends string
+> = Fragment extends `${infer Optional}?`
+    ? ValidateFragment<Optional, Root>
+    : Fragment extends `${infer Right}|${infer Left}`
+    ? ValidateFragment<Right, Root> extends Root
+        ? ValidateFragment<Left, Root>
+        : ValidateFragment<Right, Root>
+    : Fragment extends `${infer Item}[]`
+    ? ValidateFragment<Item, Root>
+    : Fragment extends keyof KeywordsToTypes
+    ? Root
+    : `Error: ${Fragment} is not a valid expression.`
+
+export const parse = <Expression extends string>(
+    expression: ValidateExpression<Expression>
+): TypeOfExpression<Expression> => {
+    // Allow a user to extract types from arbitrary chains of props
+    const typeDefProxy: any = new Proxy({}, { get: () => typeDefProxy })
+    return typeDefProxy
+}
+
+const myType = parse("string|number[]?")

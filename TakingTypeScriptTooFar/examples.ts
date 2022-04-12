@@ -73,12 +73,21 @@ type ValidateFragment<
     ? Root
     : `Error: ${Fragment} is not a valid expression.`
 
-export const parse = <Expression extends string>(
+type Parser = <Expression extends string>(
+    expression: ValidateExpression<Expression>
+) => TypeOfExpression<Expression>
+
+// let parse: Parser = (expression) => {
+// }
+
+const parseExpression = <Expression extends string>(
     expression: ValidateExpression<Expression>
 ): TypeOfExpression<Expression> => {
-    // Allow a user to extract types from arbitrary chains of props
-    const typeDefProxy: any = new Proxy({}, { get: () => typeDefProxy })
-    return typeDefProxy
+    // The actual return value is irrelevant (for now) since we're just using it to infer a type
+    return null as any
 }
 
-const myType = parse("string|number[]?")
+const goodType = parseExpression("string|number[]?")
+
+// @ts-expect-error
+const badType = parseExpression("string|numbr[]?")

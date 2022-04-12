@@ -147,7 +147,7 @@ type TypeOfExpression<Expression extends string> =
     Expression extends `${infer Optional}?`
     // Recurse to infer the type of the inner expression and add undefined as a valid type.
     ? TypeOfExpression<Optional> | undefined
-    // If the expression contains a "|"...
+    // If the expression includes "|"...
     : Expression extends `${infer Left}|${infer Right}`
     // Recurse to infer the type of each half (either is valid).
     ? TypeOfExpression<Left> | TypeOfExpression<Right>
@@ -172,30 +172,68 @@ At this point, we also might want to think more about what happens when the defi
 
 <!-- prettier-ignore -->
 ```ts
+/**
+ * In:
+ *    Fragment: The part of the expression we are currently validating
+ *    Root: The entire original expression
+ * Out:
+ *    If the Fragment (and all nested Fragments) is valid:
+ *        Return Root (the original expression).
+ *    If the Fragment (or a nested Fragment) is invalid:
+ *        Return a string describing the part of the Fragment that was invalid.
+ **/
+type ValidateFragment<Fragment extends string, Root extends string> = 
+    // If the expression ends with "?"...
+    Fragment extends `${infer Optional}?`
+    // Recurse to validate the inner expression.
+    ? ValidateFragment<Optional, Root>
+    // If the expression includes "|"...
+    : Fragment extends `${infer Left}|${infer Right}`
+    // Recurse to validate the first half. If the result is valid...
+    ? ValidateFragment<Left, Root> extends Root
+        // Recurse to validate the second half and return the result.
+        ? ValidateFragment<Right, Root>
+        // Else return the error from the first half.
+        : ValidateFragment<Left, Root>
+    // If the expression ends with "[]"...
+    : Fragment extends `${infer Item}[]`
+    // Recurse to validate the inner expression.
+    ? ValidateFragment<Item, Root>
+    // If the expression is just a keyword...
+    : Fragment extends keyof KeywordsToTypes
+    // It is valid, so return Root (the original expression).
+    ? Root
+    // Else, the expression doesn't match anything we've defined, so return an error message.
+    : `Error: '${Fragment}' is not a valid expression.`
+
+// Helper type to avoid having to pass the entire expression to ValidateFragment twice
 type ValidateExpression<Expression extends string> = ValidateFragment<
     Expression,
     Expression
 >
-
-type ValidateFragment<
-    Fragment extends string,
-    Root extends string
-> = Fragment extends `${infer Optional}?`
-    ? ValidateFragment<Optional, Root>
-    : Fragment extends `${infer Right}|${infer Left}`
-    ? ValidateFragment<Right, Root> extends Root
-        ? ValidateFragment<Left, Root>
-        : ValidateFragment<Right, Root>
-    : Fragment extends `${infer Item}[]`
-    ? ValidateFragment<Item, Root>
-    : Fragment extends keyof KeywordsToTypes
-    ? Root
-    : `Error: ${Fragment} is not a valid expression.`
-
-// Typed as string | number[] | undefined
-type Result = TypeOfExpression<`string|number[]?`>
 ```
 
-There are many more nuances to consider, but using this pattern, we can eventually extend `TypeOfExpression` to support
+By returning the original input when its valid, we can use `ValidateExpression` directly to provide type hints for a `parse` function that takes an expression and uses `TypeOfExpression` to infer its type:
 
-We could expand this proof of concept to handle all sorts of other expressions, like String
+```ts
+const parseExpression = <Expression extends string>(
+    expression: ValidateExpression<Expression>
+): TypeOfExpression<Expression> => {
+    // The actual return value is irrelevant (for now) since we're just using it to infer a type
+    return null as any
+}
+
+// No type errors
+// goodType inferred as string | number[] | undefined
+const goodType = parseExpression("string|number[]?")
+
+// Argument of type '"string|numbr[]?"' is not assignable to parameter of type '"Error: numbr is not a valid expression."'
+// badType inferred as unknown
+const badType = parseExpression("string|numbr[]?")
+```
+
+We could expand this proof of concept to handle all sorts of other expressions, including intersections, literals, and arrow functions, but before we worry about that, let's take stock of where we stand. So far, we can...
+
+-   Infer types from built-in keywords
+-   Use validated expressions to combine and modify those types
+-   Organize our types into objects (we haven't explicitly nested expressions in objects yet, but )

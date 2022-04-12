@@ -201,7 +201,7 @@ type User = {
 }
 ```
 
-During validation, we might care about other things like whether an email address is properly formatted. We'll get to that soon, but let's make sure we can support TypeScript's built-in types before we try to extend them.
+During validation, we might care about other things like whether email addresses are properly formatted. We'll get to that soon, but let's make sure we can support TypeScript's built-in types before we try to extend them.
 
 We can convert the structure of our definition by combining two of TypeScript's most flexible features- [Mapped](https://www.typescriptlang.org/docs/handbook/2/mapped-types.html) (think `Array.map` for the props of a type) and [Conditional](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html) (think ternaries) types.
 

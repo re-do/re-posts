@@ -44,6 +44,18 @@ type ValidateFragment<
     ? Root
     : `Error: ${Fragment} is not a valid expression.`
 
+const parseExpression = <Expression extends string>(
+    expression: ValidateExpression<Expression>
+): TypeOfExpression<Expression> => {
+    // The actual return value is irrelevant since we're just using it to infer a shallow type (for now)
+    return null as any
+}
+
+const goodType = parseExpression("string|number[]?")
+
+// @ts-expect-error
+const badType = parseExpression("string|numbr[]?")
+
 type User = {
     name: {
         first: string
@@ -54,52 +66,33 @@ type User = {
     coords: [number, number]
 }
 
-type TypeOfObject<Obj extends object> = {
-    // For each Key in Obj
-    [Key in keyof Obj]: Obj[Key] extends object // If the corresponding value is a nested object...
-        ? // Recurse to infer its type.
-          TypeOfObject<Obj[Key]>
-        : // If the corresponding value is a string...
-        Obj[Key] extends string
-        ? // Use our last generic to infer its type.
-          TypeOfExpression<Obj[Key]>
-        : // Else, the value is not something we've defined yet so infer unknown
-          unknown
-    // The "& unknown" is a little trick that forces TS to eagerly evaluate nested objects so you can see the full type when you mouse over it
-} & unknown
+type TypeOf<Def> = Def extends object
+    ? {
+          [Key in keyof Def]: TypeOf<Def[Key]>
+      }
+    : Def extends string
+    ? TypeOfExpression<Def>
+    : unknown
 
-type ValidateObject<Obj extends object> = {
-    // For each Key in Obj
-    [Key in keyof Obj]: Obj[Key] extends object // If the corresponding value is a nested object...
-        ? // Recurse to validate its props
-          TypeOfObject<Obj[Key]>
-        : // If the corresponding value is a string...
-        Obj[Key] extends string
-        ? // Use our last expression
-          TypeOfExpression<Obj[Key]>
-        : // Else, the value is not something we've defined yet so infer unknown
-          unknown
-    // The "& unknown" is a little trick that forces TS to eagerly evaluate nested objects so you can see the full type when you mouse over it
-}
+type Validate<Def> = Def extends object
+    ? {
+          [Key in keyof Def]: Validate<Def[Key]>
+      }
+    : Def extends string
+    ? ValidateExpression<Def>
+    : `Error: Definitions must be strings or objects whose leaves are strings.`
 
-type ObjectResult = TypeOfObject<{
-    name: {
-        first: "string"
-        middle: "string?"
-        last: "string"
-    }
-    emails: "string[]|null"
-    coords: ["number", "number"]
-}>
-
-const parseExpression = <Expression extends string>(
-    expression: ValidateExpression<Expression>
-): TypeOfExpression<Expression> => {
-    // The actual return value is irrelevant (for now) since we're just using it to infer a type
+const parse = <Def>(definition: Validate<Def>): TypeOf<Def> => {
+    // Now that we're
     return null as any
 }
 
-const goodType = parseExpression("string|number[]?")
-
-// @ts-expect-error
-const badType = parseExpression("string|numbr[]?")
+const myType = parse({
+    name: {
+        first: "string",
+        middle: "string?",
+        last: "string"
+    },
+    emails: "string[]|null",
+    coords: ["number", "number"]
+})

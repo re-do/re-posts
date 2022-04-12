@@ -2,6 +2,7 @@ type KeywordsToTypes = {
     string: string
     number: number
     boolean: boolean
+    null: null
     any: any
     // etc...
 }
@@ -11,34 +12,6 @@ type TypeOfKeyword<Keyword extends keyof KeywordsToTypes> =
 
 // Typed as string
 type Result = TypeOfKeyword<"string">
-
-type User = {
-    name: {
-        first: string
-        last: string
-    }
-    email: string
-    isAdmin: boolean
-    coords: [number, number]
-}
-
-type TypeOfObject<Obj extends object> = {
-    [Key in keyof Obj]: Obj[Key] extends keyof KeywordsToTypes
-        ? TypeOfKeyword<Obj[Key]>
-        : Obj[Key] extends object
-        ? TypeOfObject<Obj[Key]>
-        : unknown
-} & unknown
-
-type Result2 = TypeOfObject<{
-    name: {
-        first: "string"
-        last: "string"
-    }
-    email: "string"
-    isAdmin: "boolean"
-    coords: ["number", "number"]
-}>
 
 type TypeOfExpression<Expression extends string> =
     Expression extends `${infer Optional}?`
@@ -50,8 +23,6 @@ type TypeOfExpression<Expression extends string> =
         : Expression extends keyof KeywordsToTypes
         ? TypeOfKeyword<Expression>
         : unknown
-
-type Result3 = TypeOfExpression<`string|number[]?`>
 
 type ValidateExpression<Expression extends string> = ValidateFragment<
     Expression,
@@ -73,12 +44,53 @@ type ValidateFragment<
     ? Root
     : `Error: ${Fragment} is not a valid expression.`
 
-type Parser = <Expression extends string>(
-    expression: ValidateExpression<Expression>
-) => TypeOfExpression<Expression>
+type User = {
+    name: {
+        first: string
+        middle?: string
+        last: string
+    }
+    emails: string[] | null
+    coords: [number, number]
+}
 
-// let parse: Parser = (expression) => {
-// }
+type TypeOfObject<Obj extends object> = {
+    // For each Key in Obj
+    [Key in keyof Obj]: Obj[Key] extends object // If the corresponding value is a nested object...
+        ? // Recurse to infer its type.
+          TypeOfObject<Obj[Key]>
+        : // If the corresponding value is a string...
+        Obj[Key] extends string
+        ? // Use our last generic to infer its type.
+          TypeOfExpression<Obj[Key]>
+        : // Else, the value is not something we've defined yet so infer unknown
+          unknown
+    // The "& unknown" is a little trick that forces TS to eagerly evaluate nested objects so you can see the full type when you mouse over it
+} & unknown
+
+type ValidateObject<Obj extends object> = {
+    // For each Key in Obj
+    [Key in keyof Obj]: Obj[Key] extends object // If the corresponding value is a nested object...
+        ? // Recurse to validate its props
+          TypeOfObject<Obj[Key]>
+        : // If the corresponding value is a string...
+        Obj[Key] extends string
+        ? // Use our last expression
+          TypeOfExpression<Obj[Key]>
+        : // Else, the value is not something we've defined yet so infer unknown
+          unknown
+    // The "& unknown" is a little trick that forces TS to eagerly evaluate nested objects so you can see the full type when you mouse over it
+}
+
+type ObjectResult = TypeOfObject<{
+    name: {
+        first: "string"
+        middle: "string?"
+        last: "string"
+    }
+    emails: "string[]|null"
+    coords: ["number", "number"]
+}>
 
 const parseExpression = <Expression extends string>(
     expression: ValidateExpression<Expression>

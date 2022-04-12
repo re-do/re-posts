@@ -65,6 +65,7 @@ type KeywordsToTypes = {
     string: string
     number: number
     boolean: boolean
+    null: null
     any: any
     // etc...
 }
@@ -80,59 +81,7 @@ type TypeOfKeyword<Keyword extends keyof KeywordsToTypes> =
 type Result = TypeOfKeyword<"string">
 ```
 
-This is all well and good for primitives, but it's not very useful in isolation- most types worth explicitly defining have a little more depth to them. What about objects?
-
-## Taking shape
-
-Suppose we have the following `user` type:
-
-```ts
-type User = {
-    name: {
-        first: string
-        last: string
-    }
-    email: string
-    isAdmin: boolean
-    coords: [number, number]
-}
-```
-
-During validation, we might care about other things like whether an email address is properly formatted. We'll get to that soon, but let's make sure we can support TypeScript's built-in types before we try to extend them.
-
-We can convert the structure of our definition by combining two of TypeScript's most flexible features- [Mapped](https://www.typescriptlang.org/docs/handbook/2/mapped-types.html) (think `Array.map` for the props of a type) and [Conditional](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html) (think ternaries) types.
-
-<!-- prettier-ignore -->
-```ts
-type TypeOfObject<Obj extends object> = {
-    // For each Key in Obj
-    [Key in keyof Obj]: 
-        // If the corresponding value is a keyword...
-        Obj[Key] extends keyof KeywordsToTypes
-        // Use our first generic to infer its type.
-        ? TypeOfKeyword<Obj[Key]>
-        // Else if the corresponding value is a nested object...
-        : Obj[Key] extends object
-        // Recurse to infer its type.
-        ? TypeOfObject<Obj[Key]>
-        // Else, the value is not something we've defined yet so infer unknown      
-        : unknown
-// The "& unknown" is a little trick that forces TS to eagerly evaluate nested objects so you can see the full type when you mouse over it
-} & unknown
-
-// The result is identical to our original User type
-type User = TypeOfObject<{
-    name: {
-        first: "string"
-        last: "string"
-    }
-    email: "string"
-    isAdmin: "boolean"
-    coords: ["number", "number"]
-}>
-```
-
-The ability to organize predefined keywords into familiar structures like maps and tuples is necessary, but to call any of this "parsing" is a stretch. TypeScript's real power lies in the flexibility to define types using arbitrarily composable expressions like Lists (`A[]`), Unions (`A|B`), Optionals (`{key?: value}`), and many more.
+This is all well and good for primitives, but to call this "parsing" is a stretch. TypeScript's real power lies in the flexibility to define types using arbitrarily composable expressions like Lists (`A[]`), Unions (`A|B`), Optionals (`{key?: value}`), and many more.
 
 Is there any hope for an endeavoring type enthusiast hoping to extract a meaningful type from a definition like `string|number[]?`?
 
@@ -166,9 +115,11 @@ type TypeOfExpression<Expression extends string> =
 type Result = TypeOfExpression<`string|number[]?`>
 ```
 
+Note: If `undefined` is not included in `Result`, you need to set "strict" or "strictNullChecks" to true in your [tsconfig](https://www.typescriptlang.org/docs/handbook/tsconfig-json.html).
+
 It's important to consider the order in which these extends checks are performed. For example, if we had checked whether our expression matches `${infer Item}[]` before `${Left}|${Right}`, the result would have been `(string | number)[] | undefined`, which would be inconsistent with TypeScript in which unions have precedence over lists.
 
-At this point, we also might want to think more about what happens when the definition is invalid- it's easy to make a mistake when you're typing an expression in a string. Luckily, we can tweak the model we've created in `TypeOfExpression` for a new generic that will give us helpful type hints if anything goes awry:
+At this point, we also might want to think more about what happens when the definition is invalid; it's easy to make a mistake when you're typing an expression in a string. Luckily, we can tweak the model we've created in `TypeOfExpression` for a new generic that will give us helpful type hints if anything goes awry:
 
 <!-- prettier-ignore -->
 ```ts
@@ -230,6 +181,58 @@ const goodType = parseExpression("string|number[]?")
 // Argument of type '"string|numbr[]?"' is not assignable to parameter of type '"Error: numbr is not a valid expression."'
 // badType inferred as unknown
 const badType = parseExpression("string|numbr[]?")
+```
+
+We could expand this proof of concept to handle intersections, literals, arrow functions, and more! For a TypeScript nerd like me, that's all really exciting from a theoretical perspective. Practically, though, expressions will only take us so far in isolation. Most types worth defining have a little more structure than a even a well-validated string can accomodate (at least without making most devs want to tear their eyes out). Might there be a more bearable approach for dealing with objects?
+
+## Taking shape
+
+Suppose we have the following `user` type:
+
+```ts
+type User = {
+    name: {
+        first: string
+        middle?: string
+        last: string
+    }
+    emails: string[] | null
+    coords: [number, number]
+}
+```
+
+During validation, we might care about other things like whether an email address is properly formatted. We'll get to that soon, but let's make sure we can support TypeScript's built-in types before we try to extend them.
+
+We can convert the structure of our definition by combining two of TypeScript's most flexible features- [Mapped](https://www.typescriptlang.org/docs/handbook/2/mapped-types.html) (think `Array.map` for the props of a type) and [Conditional](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html) (think ternaries) types.
+
+<!-- prettier-ignore -->
+```ts
+type TypeOfObject<Obj extends object> = {
+    // For each Key in Obj
+    [Key in keyof Obj]: 
+        // If the corresponding value is a nested object...
+        Obj[Key] extends object
+        // Recurse to infer its type.
+        ? TypeOfObject<Obj[Key]>
+        // If the corresponding value is a string...
+        : Obj[Key] extends string
+        // Use our last generic to infer its type.
+        ? TypeOfExpression<Obj[Key]>
+        // Else, the value is not something we've defined yet so infer unknown      
+        : unknown
+// The "& unknown" is a little trick that forces TS to eagerly evaluate nested objects so you can see the full type when you mouse over it
+} & unknown
+
+// The result is identical to our original User type
+type User = TypeOfObject<{
+    name: {
+        first: "string"
+        middle: "string?"
+        last: "string"
+    }
+    emails: "string[]|null"
+    coords: ["number", "number"]
+}>
 ```
 
 We could expand this proof of concept to handle all sorts of other expressions, including intersections, literals, and arrow functions, but before we worry about that, let's take stock of where we stand. So far, we can...

@@ -87,7 +87,7 @@ Is there any hope for an endeavoring type enthusiast hoping to extract a meaning
 
 ## Expressing yourself
 
-Enter [Template Literals](https://www.typescriptlang.org/docs/handbook/2/template-literal-types.html), the template strings (e.g. `` `Hello, ${name}.` ``) of the type world. This rather niche feature, introduced in TypeScript 4.1, is just what we need to take ourselves to the next level of type-ception.
+Enter [Conditional](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html) and [Template Literal](https://www.typescriptlang.org/docs/handbook/2/template-literal-types.html) types. If you've never seen them before, don't worry- they're just ternaries (`condition ? valueIfTrue : valueIfFalse`) and template strings (`` `Hello, ${name}.` ``) for types. Together, they're just what we need to take ourselves to the next level of type-ception.
 
 <!-- prettier-ignore -->
 ```ts
@@ -119,7 +119,7 @@ Note: If `undefined` is not included in `Result`, you need to set "strict" or "s
 
 It's important to consider the order in which these extends checks are performed. For example, if we had checked whether our expression matches `${infer Item}[]` before `${Left}|${Right}`, the result would have been `(string | number)[] | undefined`, which would be inconsistent with TypeScript in which unions have precedence over lists.
 
-At this point, we also might want to think more about what happens when the definition is invalid; it's easy to make a mistake when you're typing an expression in a string. Luckily, we can tweak the model we've created in `TypeOfExpression` for a new generic that will give us helpful type hints if anything goes awry:
+At this point, we also might want to think more about what happens when the definition is invalid; it's easy to make a mistake when you're typing an expression in a string. Luckily, we can adapt the model we've created in `TypeOfExpression` for a new generic that will give us helpful type hints if anything goes awry:
 
 <!-- prettier-ignore -->
 ```ts
@@ -201,42 +201,156 @@ type User = {
 }
 ```
 
-During validation, we might care about other things like whether email addresses are properly formatted. We'll get to that soon, but let's make sure we can support TypeScript's built-in types before we try to extend them.
+At runtime, we might care about other things like whether email addresses are properly formatted. We'll get to that soon, but let's make sure we can support TypeScript's built-in types before we try to extend them.
 
-We can convert the structure of our definition by combining two of TypeScript's most flexible features- [Mapped](https://www.typescriptlang.org/docs/handbook/2/mapped-types.html) (think `Array.map` for the props of a type) and [Conditional](https://www.typescriptlang.org/docs/handbook/2/conditional-types.html) (think ternaries) types.
+In the meantime, we can convert a structured definition to a type by incorporating another one of TypeScript's most powerful features- [Mapped](https://www.typescriptlang.org/docs/handbook/2/mapped-types.html) types.
 
 <!-- prettier-ignore -->
 ```ts
-type TypeOfObject<Obj extends object> = {
-    // For each Key in Obj
-    [Key in keyof Obj]: 
-        // If the corresponding value is a nested object...
-        Obj[Key] extends object
-        // Recurse to infer its type.
-        ? TypeOfObject<Obj[Key]>
-        // If the corresponding value is a string...
-        : Obj[Key] extends string
-        // Use our last generic to infer its type.
-        ? TypeOfExpression<Obj[Key]>
-        // Else, the value is not something we've defined yet so infer unknown      
-        : unknown
-// The "& unknown" is a little trick that forces TS to eagerly evaluate nested objects so you can see the full type when you mouse over it
-} & unknown
-
-// The result is identical to our original User type
-type User = TypeOfObject<{
-    name: {
-        first: "string"
-        middle: "string?"
-        last: "string"
-    }
-    emails: "string[]|null"
-    coords: ["number", "number"]
-}>
+type TypeOfV1<Def> = 
+    // If Def is an object...
+    Def extends object
+    ? {
+          // For each Key in Def, recurse to infer the type of its value.
+          [Key in keyof Def]: TypeOfV1<Def[Key]>
+      }
+    // If Def is a string...
+    : Def extends string
+    // Use our last generic to infer its type.
+    ? TypeOfExpression<Def>
+    // Else, the value is not something we've defined yet so infer unknown   
+    : unknown
 ```
 
-We could expand this proof of concept to handle all sorts of other expressions, including intersections, literals, and arrow functions, but before we worry about that, let's take stock of where we stand. So far, we can...
+Simple enough, and the results look perfect... almost. Unfortunately, in this case, the devil's in the details. Take a look at the type we infer:
+
+```ts
+const Def = {
+    name: {
+        first: "string",
+        middle: "string?",
+        last: "string"
+    },
+    emails: "string[]|null",
+    coords: ["number", "number"]
+}
+
+type InferredType = {
+    name: {
+        first: string
+        // Undefined is added a possible value, but the key is still required
+        middle: string | undefined
+        last: string
+    }
+    emails: string[] | null
+    coords: [number, number]
+}
+```
+
+This is where we start to encounter some of the... quirks... of using generic types to solve the kinds of problems that would be trivial if we had access to normal imperative programming constructs, but alas, we press on.
+
+This next snippet is the most complex I'll try to address in this article, but not necessarily required reading if you'd rather [skip to the payout](#TODO) when (spoilers) everything comes together.
+
+<!-- prettier-ignore -->
+```ts
+type TypeOfV2<Def> = 
+    Def extends object
+    ? TypeOfObject<Def>
+    : Def extends string
+    ? TypeOfExpression<Def>
+    : unknown
+
+type TypeOfObject<
+    Def extends object,
+    /** 
+     * We don't have access to traditional variables when writing generic types,
+     * but we can emulate them to store intermediate computation results by assigning
+     * default values to generic parameters. Just don't pass a value to them unless
+     * you want to overwrite the default!
+     **/
+    OptionalKeys extends keyof Def = OptionalDefKeys<Def>,
+    RequiredKeys extends keyof Def = Exclude<keyof Def, OptionalKeys>
+> = // We don't need to worry about optional keys for tuples, so infer their type normally
+    Def extends any[]
+    ? { [Index in keyof Def]: TypeOfV2<Def[Index]> }
+    // Otherwise, use our precalculated key sets to merge the inferred types of our optional and required keys
+    : Evaluate<
+          { [Key in RequiredKeys]: TypeOfV2<Def[Key]> } & {
+              [Key in OptionalKeys]?: TypeOfV2<Def[Key]>
+          }
+      >
+
+// In: An object definition
+// Out: The keys of that definition whose values match our Optional expression template
+type OptionalDefKeys<Obj extends object> = {
+    // Map keys that should be optional to themselves, and others to never, excluding them from the type
+    [Key in keyof Obj]: Obj[Key] extends `${string}?` ? Key : never
+// Extract all values (other than never) from the result, yielding keys whose values are Optionals
+}[keyof Obj]
+
+// This is just a trick to force TS to eagerly evaluate generics, improving type hints 
+type Evaluate<T> = T extends object
+    ? {
+          [K in keyof T]: T[K]
+      }
+    : T
+
+```
+
+A little less simple, but now our inferred type really _is_ perfect. We do still need an updated `parse` function that can handle objects. Luckily, that's at least a little more straightforward.
+
+<!-- prettier-ignore -->
+```ts
+type Validate<Def> = 
+    // If Def is an object...
+    Def extends object
+    ? {
+          // For each Key in Def, recurse to validate its value.
+          [Key in keyof Def]: Validate<Def[Key]>
+      }
+    // If Def is a string...
+    : Def extends string
+    // Use our last generic to validate it.
+    ? ValidateExpression<Def>
+    // Else, since our parser only understands strings and objects (for now!), return an error.
+    : `Error: Definitions must be strings or objects whose leaves are strings.`
+
+
+// Allows TS to infer the exact type of an object passed to a function
+type Narrow<T> = {
+    [K in keyof T]:
+        // Nonsense required to appease the type inference gods
+        T[K] extends []
+        ? T[K]
+        : T[K] extends object
+        ? Narrow<T[K]>
+        : T[K]
+}
+
+
+const parse = <Def>(definition: Validate<Narrow<Def>>): TypeOfV2<Def> => {
+    // Allows extraction of a type from an arbitrary chain of props
+    const typeDefProxy: any = new Proxy({}, { get: () => typeDefProxy })
+    return typeDefProxy
+}
+
+// Inferred type is identical to our original definition
+const user = parse({
+    name: {
+        first: "string",
+        middle: "string?",
+        last: "string"
+    },
+    emails: "string[]|null",
+    coords: ["number", "number"]
+})
+
+// Types can also be safely inferred from props
+type Middle = typeof user.name.middle // string | undefined
+```
+
+Let's take stock of where we stand. So far, we can...
 
 -   Infer types from built-in keywords
 -   Use validated expressions to combine and modify those types
--   Organize our types into objects (we haven't explicitly nested expressions in objects yet, but )
+-   Organize our types into objects

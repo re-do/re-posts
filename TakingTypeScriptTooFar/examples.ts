@@ -66,13 +66,57 @@ type User = {
     coords: [number, number]
 }
 
-type TypeOf<Def> = Def extends object
-    ? {
-          [Key in keyof Def]: TypeOf<Def[Key]>
-      }
+type TypeOfV1<Def> =
+    // If Def is an object...
+    Def extends object
+        ? {
+              // For each Key in Def, recurse to infer the type of its value.
+              [Key in keyof Def]: TypeOfV1<Def[Key]>
+          }
+        : // If Def is a string...
+        Def extends string
+        ? // Use our last generic to infer its type.
+          TypeOfExpression<Def>
+        : // Else, the value is not something we've defined yet so infer unknown
+          unknown
+
+type ResultV1 = TypeOfV1<{
+    name: {
+        first: "string"
+        middle: "string?"
+        last: "string"
+    }
+    emails: "string[]|null"
+    coords: ["number", "number"]
+}>
+
+type OptionalDefKeys<Obj extends object> = {
+    [Key in keyof Obj]: Obj[Key] extends `${string}?` ? Key : never
+}[keyof Obj]
+
+type TypeOfObject<
+    Def extends object,
+    OptionalKeys extends keyof Def = OptionalDefKeys<Def>,
+    RequiredKeys extends keyof Def = Exclude<keyof Def, OptionalKeys>
+> = Def extends any[]
+    ? { [Index in keyof Def]: TypeOfV2<Def[Index]> }
+    : Evaluate<
+          { [Key in RequiredKeys]: TypeOfV2<Def[Key]> } & {
+              [Key in OptionalKeys]?: TypeOfV2<Def[Key]>
+          }
+      >
+
+type TypeOfV2<Def> = Def extends object
+    ? TypeOfObject<Def>
     : Def extends string
     ? TypeOfExpression<Def>
     : unknown
+
+type Evaluate<T> = T extends object
+    ? {
+          [K in keyof T]: T[K]
+      }
+    : T
 
 type Validate<Def> = Def extends object
     ? {
@@ -82,12 +126,21 @@ type Validate<Def> = Def extends object
     ? ValidateExpression<Def>
     : `Error: Definitions must be strings or objects whose leaves are strings.`
 
-const parse = <Def>(definition: Validate<Def>): TypeOf<Def> => {
-    // Now that we're
-    return null as any
+export type Narrow<T> = {
+    [K in keyof T]: T[K] extends []
+        ? T[K]
+        : T[K] extends object
+        ? Narrow<T[K]>
+        : T[K]
 }
 
-const myType = parse({
+const parse = <Def>(definition: Validate<Narrow<Def>>): TypeOfV2<Def> => {
+    // Allows extraction of a type from an arbitrary chain of props
+    const typeDefProxy: any = new Proxy({}, { get: () => typeDefProxy })
+    return typeDefProxy
+}
+
+const user = parse({
     name: {
         first: "string",
         middle: "string?",
@@ -96,3 +149,5 @@ const myType = parse({
     emails: "string[]|null",
     coords: ["number", "number"]
 })
+
+type Middle = typeof user.name.middle

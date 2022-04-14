@@ -61,7 +61,7 @@ In this case, the simplest definition from which we could infer a type is a keyw
 
 ```ts
 // Map keywords to their corresponding types
-type KeywordsToTypes = {
+type BuiltinKeywords = {
     string: string
     number: number
     boolean: boolean
@@ -353,7 +353,7 @@ This is starting to look really promising; not only can we validate and infer co
 
 That said, there is still one more feature we need to make the leap from a cool experiment to a real type system.
 
-# The final ingredient
+## The final ingredient
 
 Let's take stock of what we've built. So far, we can...
 

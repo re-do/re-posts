@@ -13,48 +13,48 @@ type TypeOfKeyword<Keyword extends keyof KeywordsToTypes> =
 // Typed as string
 type Result = TypeOfKeyword<"string">
 
-type TypeOfExpression<Expression extends string> =
+type TypeOfExpressionV1<Expression extends string> =
     Expression extends `${infer Optional}?`
-        ? TypeOfExpression<Optional> | undefined
+        ? TypeOfExpressionV1<Optional> | undefined
         : Expression extends `${infer Right}|${infer Left}`
-        ? TypeOfExpression<Right> | TypeOfExpression<Left>
+        ? TypeOfExpressionV1<Right> | TypeOfExpressionV1<Left>
         : Expression extends `${infer Item}[]`
-        ? TypeOfExpression<Item>[]
+        ? TypeOfExpressionV1<Item>[]
         : Expression extends keyof KeywordsToTypes
         ? TypeOfKeyword<Expression>
         : unknown
 
-type ValidateExpression<Expression extends string> = ValidateFragment<
+type ValidateExpressionV1<Expression extends string> = ValidateFragmentV1<
     Expression,
     Expression
 >
 
-type ValidateFragment<
+type ValidateFragmentV1<
     Fragment extends string,
     Root extends string
 > = Fragment extends `${infer Optional}?`
-    ? ValidateFragment<Optional, Root>
+    ? ValidateFragmentV1<Optional, Root>
     : Fragment extends `${infer Right}|${infer Left}`
-    ? ValidateFragment<Right, Root> extends Root
-        ? ValidateFragment<Left, Root>
-        : ValidateFragment<Right, Root>
+    ? ValidateFragmentV1<Right, Root> extends Root
+        ? ValidateFragmentV1<Left, Root>
+        : ValidateFragmentV1<Right, Root>
     : Fragment extends `${infer Item}[]`
-    ? ValidateFragment<Item, Root>
+    ? ValidateFragmentV1<Item, Root>
     : Fragment extends keyof KeywordsToTypes
     ? Root
     : `Error: ${Fragment} is not a valid expression.`
 
-const parseExpression = <Expression extends string>(
-    expression: ValidateExpression<Expression>
-): TypeOfExpression<Expression> => {
+const parseExpressionV1 = <Expression extends string>(
+    expression: ValidateExpressionV1<Expression>
+): TypeOfExpressionV1<Expression> => {
     // The actual return value is irrelevant since we're just using it to infer a shallow type (for now)
     return null as any
 }
 
-const goodType = parseExpression("string|number[]?")
+const goodType = parseExpressionV1("string|number[]?")
 
 // @ts-expect-error
-const badType = parseExpression("string|numbr[]?")
+const badType = parseExpressionV1("string|numbr[]?")
 
 type User = {
     name: {
@@ -76,7 +76,7 @@ type TypeOfV1<Def> =
         : // If Def is a string...
         Def extends string
         ? // Use our last generic to infer its type.
-          TypeOfExpression<Def>
+          TypeOfExpressionV1<Def>
         : // Else, the value is not something we've defined yet so infer unknown
           unknown
 
@@ -109,7 +109,7 @@ type TypeOfObject<
 type TypeOfV2<Def> = Def extends object
     ? TypeOfObject<Def>
     : Def extends string
-    ? TypeOfExpression<Def>
+    ? TypeOfExpressionV1<Def>
     : unknown
 
 type Evaluate<T> = T extends object
@@ -123,7 +123,7 @@ type Validate<Def> = Def extends object
           [Key in keyof Def]: Validate<Def[Key]>
       }
     : Def extends string
-    ? ValidateExpression<Def>
+    ? ValidateExpressionV1<Def>
     : `Error: Definitions must be strings or objects whose leaves are strings.`
 
 export type Narrow<T> = {
@@ -150,4 +150,79 @@ const user = parse({
     coords: ["number", "number"]
 })
 
+type TypeOfObjectV2<
+    Def extends object,
+    Space,
+    OptionalKeys extends keyof Def = OptionalDefKeys<Def>,
+    RequiredKeys extends keyof Def = Exclude<keyof Def, OptionalKeys>
+> = Def extends any[]
+    ? { [Index in keyof Def]: TypeOfV3<Def[Index], Space> }
+    : Evaluate<
+          { [Key in RequiredKeys]: TypeOfV3<Def[Key], Space> } & {
+              [Key in OptionalKeys]?: TypeOfV3<Def[Key], Space>
+          }
+      >
+
+type TypeOfV3<Def, Space = {}> = Def extends object
+    ? TypeOfObjectV2<Def, Space>
+    : Def extends string
+    ? TypeOfExpressionV2<Def, Space>
+    : unknown
+
+type ValidateV2<Def, Space = {}> = Def extends object
+    ? {
+          [Key in keyof Def]: Validate<Def[Key]>
+      }
+    : Def extends string
+    ? ValidateExpressionV2<Def, Space>
+    : `Error: Definitions must be strings or objects whose leaves are strings.`
+
 type Middle = typeof user.name.middle
+
+type Category = {
+    name: string
+    subcategories: Category[]
+}
+
+type TypeOfExpressionV2<
+    Expression extends string,
+    Space
+> = Expression extends `${infer Optional}?`
+    ? TypeOfExpressionV2<Optional, Space> | undefined
+    : Expression extends `${infer Right}|${infer Left}`
+    ? TypeOfExpressionV2<Right, Space> | TypeOfExpressionV2<Left, Space>
+    : Expression extends `${infer Item}[]`
+    ? TypeOfExpressionV2<Item, Space>[]
+    : Expression extends keyof KeywordsToTypes
+    ? TypeOfKeyword<Expression>
+    : Expression extends keyof Space
+    ? TypeOfV3<Space[Expression], Space>
+    : unknown
+
+type ValidateExpressionV2<
+    Expression extends string,
+    Space
+> = ValidateFragmentV2<Expression, Expression, Space>
+
+type ValidateFragmentV2<
+    Fragment extends string,
+    Root extends string,
+    Space
+> = Fragment extends `${infer Optional}?`
+    ? ValidateFragmentV2<Optional, Root, Space>
+    : Fragment extends `${infer Right}|${infer Left}`
+    ? ValidateFragmentV2<Right, Root, Space> extends Root
+        ? ValidateFragmentV2<Left, Root, Space>
+        : ValidateFragmentV2<Right, Root, Space>
+    : Fragment extends `${infer Item}[]`
+    ? ValidateFragmentV2<Item, Root, Space>
+    : Fragment extends keyof KeywordsToTypes
+    ? Root
+    : Fragment extends keyof Space
+    ? Root
+    : `Error: ${Fragment} is not a valid expression.`
+
+type Z = TypeOfV3<
+    "category",
+    { category: { name: "string"; subcategories: "category[]" } }
+>

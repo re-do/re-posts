@@ -349,8 +349,27 @@ const user = parse({
 type Middle = typeof user.name.middle // string | undefined
 ```
 
-Let's take stock of where we stand. So far, we can...
+This is starting to look really promising; not only can we validate and infer complex TypeScript types instantly, since those types are defined as simple objects, they'll still be there when we want to use them at runtime!
+
+That said, there is still one more feature we need to make the leap from a cool experiment to a real type system.
+
+# The final ingredient
+
+Let's take stock of what we've built. So far, we can...
 
 -   Infer types from built-in keywords
 -   Use validated expressions to combine and modify those types
 -   Organize our types into objects
+
+Recall the original type we wanted to represent:
+
+```ts
+const category = {
+    name: "string",
+    subcategories: "category[]"
+}
+```
+
+We still don't have a way for types to reference themselves or each other! In the real world, models are deeply interconnected; `User` has a `User[]` of friends and a `Group[]` of `Group`s of `User`s. These types don't exist in isolation, but in the context of the set of types defined in a particular domain, which we'll call a **space**.
+
+The simplest way to represent a space would be an object mapping the name of each type to its definition, which could include references to itself or other types in the space. But this is exactly the kind of definition Zod said was impossible to infer a type from. Are they right?

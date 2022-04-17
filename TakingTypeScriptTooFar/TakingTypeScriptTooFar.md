@@ -373,3 +373,96 @@ const category = {
 We still don't have a way for types to reference themselves or each other! In the real world, models are deeply interconnected; `User` has a `User[]` of friends and a `Group[]` of `Group`s of `User`s. These types don't exist in isolation, but in the context of the set of types defined in a particular domain, which we'll call a **space**.
 
 The simplest way to represent a space would be an object mapping the name of each type to its definition, which could include references to itself or other types in the space. But this is exactly the kind of definition Zod said was impossible to infer a type from. Are they right?
+
+The first thing we'll need to do to find out is add "Space" as an optional parameter to all of our previous generics:
+
+<!-- prettier-ignore -->
+```ts
+// Generics support default parameters just like functions.
+// By setting Space to {} by default, it can be omitted if only built-in types are needed.
+type TypeOf<Def, Space = {}> = 
+    Def extends object
+    ? TypeOfObject<Def, Space>
+    : Def extends string
+    ? TypeOfExpression<Def, Space>
+    : unknown
+
+type TypeOfExpression<
+    Expression extends string,
+    Space = {}
+> =
+    // ... (the other checks stay the same)
+    // If the Fragment is the name of a type in Space...
+    Fragment extends keyof Space
+    // Infer the type of its corresponding definition.
+    ? TypeOf<Space[Fragment], Space>
+    : unknown
+
+type ValidateFragment<
+    Fragment extends string,
+    Root extends string,
+    Space = {}
+> = 
+    // ... (the other checks stay the same)
+    // If the Fragment is the name of a type in Space...
+    Fragment extends keyof Space
+    // Return the original expression (just like we did for keywords).
+    ? Root
+    : `Error: ${Fragment} is not a valid expression.`
+
+// Validate and parse all types in a space
+const parse = <Space>(
+    space: Validate<TakingShape.Narrow<Space>, Space>
+): TypeOf<Space, Space> => {
+    // Allows extraction of a type from an arbitrary chain of props
+    const typeDefProxy: any = new Proxy({}, { get: () => typeDefProxy })
+    return typeDefProxy
+}
+```
+
+With just a few tweaks to the types we'd already built, it seems like we have a reasonable approach. But will it be able to correctly infer the type of our recursive `Category` type?
+
+```ts
+const types = parse({
+    category: {
+        name: "string",
+        subcategories: "category[]"
+    }
+})
+```
+
+Mousing over the resulting type in VSCode looks like this:
+
+![CategoryInferredType](./CategoryTypeScreenshot.png)
+
+At first I wasn't sure to make of this; the `...` is definitely a little sus. Will TypeScript still validate that each element of `subcategories` conforms to the root `category` type?
+
+The answer is a resounding yes! Turns out, VSCode just uses ellipses as shorthand for "we've already seen this type." Here's what it looks like if we make a mistake in one of our subcategory definitions:
+
+![CategoryInferredType](./CategoryAssignmentScreenshot.png)
+
+Mousing over the `subsandwiches` yields the expected Type Error: "'subsandwiches' does not exist in type '{ name: string; subcategories: ...[]; }'".
+
+What if we add a couple more recursive and/or cyclic definitions to our space? Does our solution hold up?
+
+```ts
+const types = parse({
+    user: {
+        name: "string",
+        friends: "user[]",
+        groups: "group[]"
+    },
+    group: {
+        members: "user[]",
+        category: "category?"
+    },
+    category: {
+        name: "string",
+        subcategories: "category[]"
+    }
+})
+```
+
+Even definitions like these are inferred precisely to an arbitrary depth based on the context in which they are used:
+
+![UserInferredType](./UserTypeScreenshot.png)

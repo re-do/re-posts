@@ -23,16 +23,11 @@ export namespace FinalIngredient {
 
     type Validate<Def, Space = {}> = Def extends object
         ? {
-              [Key in keyof Def]: Validate<Def[Key]>
+              [Key in keyof Def]: Validate<Def[Key], Space>
           }
         : Def extends string
         ? ValidateExpression<Def, Space>
         : `Error: Definitions must be strings or objects whose leaves are strings.`
-
-    type Category = {
-        name: string
-        subcategories: Category[]
-    }
 
     type TypeOfExpression<
         Expression extends string,
@@ -72,14 +67,44 @@ export namespace FinalIngredient {
         ? Root
         : `Error: ${Fragment} is not a valid expression.`
 
-    type InferredCategory = TypeOf<
-        "category",
-        { category: { name: "string"; subcategories: "category[]" } }
-    >
-
-    const category1: InferredCategory = {
-        name: "Ok",
-        // @ts-expect-error
-        subcategories: [{ name: "Not ok", subsandwiches: [] }]
+    const parse = <Space>(
+        space: Validate<TakingShape.Narrow<Space>, Space>
+    ): TypeOf<Space, Space> => {
+        // Allows extraction of a type from an arbitrary chain of props
+        const typeDefProxy: any = new Proxy({}, { get: () => typeDefProxy })
+        return typeDefProxy
     }
+
+    const types = parse({
+        category: {
+            name: "string",
+            subcategories: "category[]"
+        }
+    })
+
+    type Category = typeof types.category
+
+    const category: Category = {
+        name: "Good",
+        // @ts-expect-error
+        subcategories: [{ name: "Bad", subsandwiches: [] }]
+    }
+
+    const space = parse({
+        user: {
+            name: "string",
+            friends: "user[]",
+            groups: "group[]"
+        },
+        group: {
+            members: "user[]",
+            category: "category?"
+        },
+        category: {
+            name: "string",
+            subcategories: "category[]"
+        }
+    })
+
+    type User = typeof space.user
 }

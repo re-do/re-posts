@@ -249,7 +249,7 @@ type InferredType = {
 
 This is where we start to encounter some of the... quirks... of using generic types to solve the kinds of problems that would be trivial if we had access to normal imperative programming constructs, but alas, we press on.
 
-This next snippet is the most complex I'll try to address in this article, but not necessarily required reading if you'd rather [skip to the payout](#TODO) when (spoilers) everything comes together.
+This next snippet is the most complex I'll try to address in this article, but not necessarily required reading if you'd rather [skip to the payout](#the-solution) when (spoilers) everything comes together.
 
 <!-- prettier-ignore -->
 ```ts
@@ -484,6 +484,6 @@ As it turns out, reports of TypeScript's limitations were greatly exaggerated. T
 
 We've got a lot of work to do, so let's jump right into it...
 
-## Introducing @re-/model
+## The solution
 
-Don't worry- despite the level of derangment my font preferences and obsession with generics might suggest, I wouldn't ask you to bear with me through all of that after an entire article of type gymnastics. The truth is, not only do I love TypeScript, I love its devs. My goal is to build tools that make your job easier, not to subject you to the horrors of debugging the 82-million-chracter type error I encountered while trying to do it. If, like me, you enjoy the nuances and complexities of bending TypeScript's type system to your will, I'm [always looking for passionate contributors](https://github.com/re-do/re-po/blob/main/CONTRIBUTING.md)! If instead, you'd prefer to purge this article from your memory and never want to see a generic type again... well, first of all I'm impressed you made it this far. But more importantly, _that's ok_- you shouldn't need to be a TypeScript expert just to avoid duplicating your definitions.
+Don't worry- despite the level of derangment my font preferences and obsession with generics might suggest, I wouldn't ask you to bear with me through all of that after an entire article of type gymnastics. The truth is, not only do I love TypeScript, I love its devs. My goal is to build tools that make your job easier, not to subject you to the horrors of debugging the 82-million-chracter type error I encountered while trying to do it. If, like me, you enjoy the nuances and complexities of bending TypeScript's type system to your will, I'm [always looking for passionate contributors](https://github.com/re-do/re-po/blob/main/CONTRIBUTING.md)! If instead, you'd prefer to purge this article from your memory and never want to see a generic type again... well, first of all I'm impressed you made it this far. But more importantly, _that's ok_- you shouldn't need to be a TypeScript expert just to avoid duplicating your definitions, and if you like TypeScript's syntax, you shouldn't need to learn how to chain together a bunch of function calls to build a simple validator.

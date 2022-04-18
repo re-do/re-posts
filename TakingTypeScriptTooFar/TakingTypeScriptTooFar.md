@@ -471,19 +471,32 @@ _If you make a mistake in any of your definitions, you'll still get descriptive 
 ![UserInferredType](./UserTypeScreenshot.png)
 _Otherewise, TypeScript will happily calculate recursive types like these to whatever depth is needed_
 
-As it turns out, reports of TypeScript's limitations were greatly exaggerated. That said, all we've done is build a proof of concept that TypeScript types can be accurately inferred from simple definitions written using objects and strings. To use this in place of one of the existing solutions for validation, we still need:
+As it turns out, reports of TypeScript's limitations were greatly exaggerated. That said, all we've done is build a proof of concept that TypeScript types can be accurately inferred from simple definitions written using objects and strings. To use this in place of one of the existing solutions for validation, we still need a way to parse all of the syntax we've defined at runtime so we can use it to validate data.
 
--   A way to parse our definitions and use them to validate data at runtime
--   Support for the TypeScript syntax we missed, including...
-    -   Keywords like `object` and `any` (bonus points if you can name all 14)
-    -   Expressions like Intersections (`A & B`) and Arrow Functions (`(A, B) => C`)
-    -   Literals like `true`, `"yes"`, `42`, and `99999n` (bigint)
--   Syntax for validation that falls outside the scope of the type system, including...
-    -   Is a string a properly formatted email address?
-    -   Is a number within an allowed range?
-
-We've got a lot of work to do, so let's jump right into it...
+<div style="display:flex;align-items:baseline;white-space:pre">
+    <p>Let's jump straight into it. </p>
+    <p style="font-size:xx-small;">/s</p>
+</div>
 
 ## The solution
 
-Don't worry- despite the level of derangment my font preferences and obsession with generics might suggest, I wouldn't ask you to bear with me through all of that after an entire article of type gymnastics. The truth is, not only do I love TypeScript, I love its devs. My goal is to build tools that make your job easier, not to subject you to the horrors of debugging the 82-million-chracter type error I encountered while trying to do it. If, like me, you enjoy the nuances and complexities of bending TypeScript's type system to your will, I'm [always looking for passionate contributors](https://github.com/re-do/re-po/blob/main/CONTRIBUTING.md)! If instead, you'd prefer to purge this article from your memory and never want to see a generic type again... well, first of all I'm impressed you made it this far. But more importantly, _that's ok_- you shouldn't need to be a TypeScript expert just to avoid duplicating your definitions, and if you like TypeScript's syntax, you shouldn't need to learn how to chain together a bunch of function calls to build a simple validator.
+Don't worry- despite the level of derangment my font preferences and obsession with generics might suggest, I wouldn't ask you to bear with me through all of that after an entire article of type gymnastics.
+
+The truth is, not only do I love TypeScript, I love its devs. My goal is to build tools that make your job easier, not to subject you to the horrors of debugging the 82-million-character type error I encountered while trying to do it. If, like me, you enjoy the nuances and complexities of bending the type system to your will, I'm [always looking for passionate contributors](https://github.com/re-do/re-po/blob/main/CONTRIBUTING.md)!
+
+If instead, you'd prefer to purge this article from your memory and never want to see a generic type again... well, first of all I'm impressed you made it this far. But more importantly, _that's ok_- you shouldn't need to be a TypeScript expert just to avoid duplicating your definitions and you definitely shouldn't need to figure out which three functions you need to import and chain together from your validation library to represent an optional string array when you can just use TypeScript's own syntax to express a clearer type in under 10 characters as `"string[]?"`.
+
+With those goals in mind, I'd like to introduce the TypeScript community to a package I've been working on called `@re-/model`. The package is brand new, but it already supports:
+
+-   All of the type syntax we covered in the the article plus:
+    -   All 14 built-in TypeScript keyword types like `object` and `any` (bonus points if you can them all)
+    -   All built-in TypeScript literal types like `true`, `"yes"`, `42`, and `99999n`
+    -   More expressions including Intersections (`A&B`) and Arrow Functions (`(A,B)=>C`)
+-   Extended syntax for validation that falls outside the scope of the type system, like...
+    -   Is a string a properly formatted email address?
+    -   Is a number within an allowed range?
+    -   Does a string match a regex pattern?
+
+All of this is covered by 300+ unit tests so that even the most complex recursive definitions are typed and validated just the way you'd expect.
+
+I believe we're just scratching the surface of what's possible when a single type definition can take you all the way from your editor to prod. From GraphQL to text files, DBs to state management, the applications for universal types seem limitless. But there's still one thing missing...

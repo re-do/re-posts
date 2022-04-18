@@ -14,7 +14,7 @@ Have you ever spent hours meticulously defining TypeScript types just for them t
 -   Normally not necessary to test
 -   Relied on as a single source of truth
 
-There have been attempts to mitigate this; Zod in particular has done a great job with type inference. Unfortunately, even they claim that:
+There have been attempts to mitigate this. Zod in particular has made type infererence (and even type manipulation!) a core focus of their approach, but even they claim that:
 
 > "Because of a limitation of TypeScript, types from recursive schemas can't be statically inferred."
 
@@ -463,6 +463,27 @@ const types = parse({
 })
 ```
 
-Even definitions like these are inferred precisely to an arbitrary depth based on the context in which they are used:
+Even definitions like these are validated and can be used to precisely infer types:
+
+![DefinitionValidationError](./ValidationError.png)
+_If you make a mistake in any of your definitions, you'll still get descriptive type errors_
 
 ![UserInferredType](./UserTypeScreenshot.png)
+_Otherewise, TypeScript will happily calculate recursive types like these to whatever depth is needed_
+
+As it turns out, reports of TypeScript's limitations were greatly exaggerated. That said, all we've done is build a proof of concept that TypeScript types can be accurately inferred from simple definitions written using objects and strings. To use this in place of one of the existing solutions for validation, we still need:
+
+-   A way to parse our definitions and use them to validate data at runtime
+-   Support for the TypeScript syntax we missed, including...
+    -   Keywords like `object` and `any` (bonus points if you can name all 14)
+    -   Expressions like Intersections (`A & B`) and Arrow Functions (`(A, B) => C`)
+    -   Literals like `true`, `"yes"`, `42`, and `99999n` (bigint)
+-   Syntax for validation that falls outside the scope of the type system, including...
+    -   Is a string a properly formatted email address?
+    -   Is a number within an allowed range?
+
+We've got a lot of work to do, so let's jump right into it...
+
+## Introducing @re-/model
+
+Don't worry- despite the level of derangment my font preferences and obsession with generics might suggest, I wouldn't ask you to bear with me through all of that after an entire article of type gymnastics. The truth is, not only do I love TypeScript, I love its devs. My goal is to build tools that make your job easier, not to subject you to the horrors of debugging the 82-million-chracter type error I encountered while trying to do it. If, like me, you enjoy the nuances and complexities of bending TypeScript's type system to your will, I'm [always looking for passionate contributors](https://github.com/re-do/re-po/blob/main/CONTRIBUTING.md)! If instead, you'd prefer to purge this article from your memory and never want to see a generic type again... well, first of all I'm impressed you made it this far. But more importantly, _that's ok_- you shouldn't need to be a TypeScript expert just to avoid duplicating your definitions.

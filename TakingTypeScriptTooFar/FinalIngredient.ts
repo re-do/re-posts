@@ -67,7 +67,7 @@ export namespace FinalIngredient {
         ? Root
         : `Error: ${Fragment} is not a valid expression.`
 
-    const parse = <Space>(
+    const compile = <Space>(
         space: Validate<TakingShape.Narrow<Space>, Space>
     ): TypeOf<Space, Space> => {
         // Allows extraction of a type from an arbitrary chain of props

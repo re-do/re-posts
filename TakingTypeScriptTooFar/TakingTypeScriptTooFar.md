@@ -4,21 +4,23 @@
 
 Now, I know you might be thinking "Oh look, another developer using TypeScript types to achieve something completely impractical just to prove it's possible."
 
-And you're right.
+And you're (half) right.
 
 Using generic types and template strings to parse types from their definitions _is_ completely impractical. But- and you'll have to hear me out on this- it may not be completely useless.
 
-Have you ever spent hours meticulously defining TypeScript types just for them to be compiled away when you need them to validate your data at runtime? Not only is it frustrating to have to translate them from TypeScript to whatever format your validator (Zod, Yup, JOI, etc.) understands, it duplicates code that is:
+Have you ever spent hours meticulously defining TypeScript types just for them to be compiled away when you need them to validate your data at runtime? Whether you're parsing a text file, handling an API request or checking a form submission, all of a sudden the definitions you worked so hard on are completely useless.
+
+So now, instead of extending your existing definitions for validation, you're stuck translating the entire structure to whatever format your validator (Zod, Yup, JOI, etc.) understands, duplicating code that is:
 
 -   Likely to require frequent updates
 -   Normally not necessary to test
 -   Relied on as a single source of truth
 
-There have been attempts to mitigate this. Zod in particular has made type infererence (and even type manipulation!) a core focus of their approach, but even they claim that:
+There have been attempts to mitigate this. Zod in particular has made type infererence a core focus of their approach, but even they claim that:
 
 > "Because of a limitation of TypeScript, types from recursive schemas can't be statically inferred."
 
-So once again, we find ourselves having to duplicate our types, as well as to translate them into a rather unwieldy construct like this one:
+So once again, we find ourselves having to duplicate our types, as well as to translate them into a rather unwieldy construct like this one from their documentation:
 
 > ```ts
 > interface Category {
@@ -35,14 +37,14 @@ So once again, we find ourselves having to duplicate our types, as well as to tr
 > )
 > ```
 
-To me, this schema definition feels a little yucky, especially compared to the TypeScript syntax we're trying to replicate. All of this just begs the question: how close can we get to TypeScript syntax within the confines of JavaScript?
+To me, this schema definition feels a little yucky, especially compared to the original TypeScript. All of this begs the question: how close can we get to TypeScript syntax within the confines of JavaScript?
 
 The answer probably looks something like this:
 
 ```ts
 const category = {
     name: "string",
-    subcategories: "Category[]"
+    subcategories: "category[]"
 }
 ```
 
@@ -81,7 +83,7 @@ type TypeOfKeyword<Keyword extends keyof KeywordsToTypes> =
 type Result = TypeOfKeyword<"string">
 ```
 
-This is all well and good for primitives, but to call this "parsing" is a stretch. TypeScript's real power lies in the flexibility to define types using arbitrarily composable expressions like Lists (`A[]`), Unions (`A|B`), Optionals (`{key?: value}`), and many more.
+This is all well and good for primitives, but to call this "parsing" is a stretch. TypeScript's real power lies in the flexibility to define types using arbitrarily composable expressions like lists (`A[]`) and unions (`A|B`), as well as modifiers like (`{key?: value}`) to make a key optional.
 
 Is there any hope for an endeavoring type enthusiast hoping to extract a meaningful type from a definition like `string|number[]?`?
 
@@ -168,6 +170,7 @@ By returning the original input when its valid, we can use `ValidateExpression` 
 
 ```ts
 const parseExpression = <Expression extends string>(
+    // TypeScript will infer the "Expression" type from the value of the "expression" parameter
     expression: ValidateExpression<Expression>
 ): TypeOfExpression<Expression> => {
     // The actual return value is irrelevant (for now) since we're just using it to infer a type
@@ -201,7 +204,7 @@ type User = {
 }
 ```
 
-At runtime, we might care about other things like whether email addresses are properly formatted. We'll get to that soon, but let's make sure we can support TypeScript's built-in types before we try to extend them.
+At runtime, we might care about other things like whether email addresses are properly formatted. We'll get to that, but let's make sure we can support TypeScript's built-in types before we try to extend them.
 
 In the meantime, we can convert a structured definition to a type by incorporating another one of TypeScript's most powerful features- [Mapped](https://www.typescriptlang.org/docs/handbook/2/mapped-types.html) types.
 
@@ -249,7 +252,7 @@ type InferredType = {
 
 This is where we start to encounter some of the... quirks... of using generic types to solve the kinds of problems that would be trivial if we had access to normal imperative programming constructs, but alas, we press on.
 
-This next snippet is the most complex I'll try to address in this article, but not necessarily required reading if you'd rather [skip to the payout](#the-solution) when (spoilers) everything comes together.
+This next snippet is the most complex we'll cover in this article, but not necessarily required reading if you'd rather [skip to the final ingredient](#the-final-ingredient) when (spoilers) everything comes together.
 
 <!-- prettier-ignore -->
 ```ts
@@ -281,12 +284,18 @@ type TypeOfObject<
       >
 
 // In: An object definition
-// Out: The keys of that definition whose values match our Optional expression template
-type OptionalDefKeys<Obj extends object> = {
-    // Map keys that should be optional to themselves, and others to never, excluding them from the type
-    [Key in keyof Obj]: Obj[Key] extends `${string}?` ? Key : never
-// Extract all values (other than never) from the result, yielding keys whose values are Optionals
-}[keyof Obj]
+// Out: A union representing the set of keys from that definition whose values match our Optional expression template
+type OptionalDefKeys<Def extends object> = {
+    // For each key of Def...
+    [Key in keyof Def]: 
+        // If the corresponding value from Def ends with "?"...
+        Def[Key] extends `${string}?` ? 
+        // Map the key to itself (e.g. {optionalKey: "number?"} => {optionalKey: "optionalKey"}).
+        Key : 
+        // Map the key to never to exclude it from the result (e.g. {"requiredKey": "number"} => {requiredKey: never}).
+        never
+// Extract all values (other than never) from the result, yielding the set of keys whose values end in "?"
+}[keyof Def]
 
 // This is just a trick to force TS to eagerly evaluate generics, improving type hints 
 type Evaluate<T> = T extends object
@@ -297,7 +306,7 @@ type Evaluate<T> = T extends object
 
 ```
 
-A little less simple, but now our inferred type really _is_ perfect. We do still need an updated `parse` function that can handle objects. Luckily, that's at least a little more straightforward.
+A little less simple, but now our inferred type really _is_ perfect. We do still need an updated `parse` function that can handle objects. Luckily, that's a little more straightforward.
 
 <!-- prettier-ignore -->
 ```ts
@@ -310,13 +319,18 @@ type Validate<Def> =
       }
     // If Def is a string...
     : Def extends string
-    // Use our last generic to validate it.
+    // Use our generic from the previous section to validate it.
     ? ValidateExpression<Def>
     // Else, since our parser only understands strings and objects (for now!), return an error.
     : `Error: Definitions must be strings or objects whose leaves are strings.`
 
 
-// Allows TS to infer the exact type of an object passed to a function
+/** Allows TS to infer the exact type of an object passed to a function, so that when a definition like:
+ *      {prop: "string|number[]?"}
+ *  is passed through a parameter, its type is not widened to:
+ *      {prop: string}
+ *  It's critical we avoid this behavior so that the original definition is preserved.
+ **/
 type Narrow<T> = {
     [K in keyof T]:
         // Nonsense required to appease the type inference gods
@@ -329,8 +343,9 @@ type Narrow<T> = {
 
 
 const parse = <Def>(definition: Validate<Narrow<Def>>): TypeOfV2<Def> => {
-    // Allows extraction of a type from an arbitrary chain of props
-    const typeDefProxy: any = new Proxy({}, { get: () => typeDefProxy })
+    // Create a proxy that returns itself as the value of any prop
+    const typeDefProxy = new Proxy({}, { get: () => typeDefProxy })
+    // By returning this value, types can be extracted from arbitrary chains of props without throwing at runtime
     return typeDefProxy
 }
 
@@ -351,7 +366,7 @@ type Middle = typeof user.name.middle // string | undefined
 
 This is starting to look really promising; not only can we validate and infer complex TypeScript types instantly, since those types are defined as simple objects, they'll still be there when we want to use them at runtime!
 
-That said, there is still one more feature we need to make the leap from a cool experiment to a real type system.
+That said, we're still missing the one simple feature that will transform our novel experiment into a usable type system.
 
 ## The final ingredient
 
@@ -359,7 +374,7 @@ Let's take stock of what we've built. So far, we can...
 
 -   Infer types from built-in keywords
 -   Use validated expressions to combine and modify those types
--   Organize our types into objects
+-   Structure our definitions using objects
 
 Recall the original type we wanted to represent:
 
@@ -370,11 +385,11 @@ const category = {
 }
 ```
 
-We still don't have a way for types to reference themselves or each other! In the real world, models are deeply interconnected; `User` has a `User[]` of friends and a `Group[]` of `Group`s of `User`s. These types don't exist in isolation, but in the context of the set of types defined in a particular domain, which we'll call a **space**.
+We still don't have a way for types to reference themselves or each other! In the real world, models are deeply interconnected; `User` has a `User[]` of friends and a `Group[]` of `Group`s of `User`s. These types don't exist in isolation, but in the context of the set of types defined in a particular domain, which we'll call a **Space**.
 
-The simplest way to represent a space would be an object mapping the name of each type to its definition, which could include references to itself or other types in the space. But this is exactly the kind of definition Zod said was impossible to infer a type from. Are they right?
+The simplest way to represent a Space would be a dictionary mapping type names to definitions, which could include references to themselves or any of the other types in the Space. But this is exactly the kind of definition Zod said was impossible to infer a type from. Are they right?
 
-The first thing we'll need to do to find out is add "Space" as an optional parameter to all of our previous generics:
+The first thing we'll need to do to find out is add `Space` as an optional parameter to all of our previous generics:
 
 <!-- prettier-ignore -->
 ```ts
@@ -411,7 +426,7 @@ type ValidateFragment<
     : `Error: ${Fragment} is not a valid expression.`
 
 // Validate and parse all types in a space
-const parse = <Space>(
+const compile = <Space>(
     space: Validate<TakingShape.Narrow<Space>, Space>
 ): TypeOf<Space, Space> => {
     // Allows extraction of a type from an arbitrary chain of props
@@ -437,7 +452,7 @@ Mousing over the resulting type in VSCode looks like this:
 
 At first I wasn't sure to make of this; the `...` is definitely a little sus. Will TypeScript still validate that each element of `subcategories` conforms to the root `category` type?
 
-The answer is a resounding yes! Turns out, VSCode just uses ellipses as shorthand for "we've already seen this type." Here's what it looks like if we make a mistake in one of our subcategory definitions:
+Turns out, VSCode just uses ellipses as shorthand for "we've already seen this type." Here's what it looks like if we make a mistake in one of our subcategory definitions:
 
 ![CategoryInferredType](./CategoryAssignmentScreenshot.png)
 
@@ -489,9 +504,11 @@ If instead, you'd prefer to purge this article from your memory and never want t
 With those goals in mind, I'd like to introduce the TypeScript community to a package I've been working on called `@re-/model`. The package is brand new, but it already supports:
 
 -   All of the type syntax we covered in the the article plus:
+
     -   All 14 built-in TypeScript keyword types like `object` and `any` (bonus points if you can them all)
     -   All built-in TypeScript literal types like `true`, `"yes"`, `42`, and `99999n`
     -   More expressions including Intersections (`A&B`) and Arrow Functions (`(A,B)=>C`)
+
 -   Extended syntax for validation that falls outside the scope of the type system, like...
     -   Is a string a properly formatted email address?
     -   Is a number within an allowed range?

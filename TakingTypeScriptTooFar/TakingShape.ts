@@ -64,12 +64,17 @@ export namespace TakingShape {
           >
 
     // In: An object definition
-    // Out: The keys of that definition whose values match our Optional expression template
-    export type OptionalDefKeys<Obj extends object> = {
-        // Map keys that should be optional to themselves, and others to never, excluding them from the type
-        [Key in keyof Obj]: Obj[Key] extends `${string}?` ? Key : never
-        // Extract all values (other than never) from the result, yielding keys whose values are Optionals
-    }[keyof Obj]
+    // Out: A union representing the set of keys from that definition whose values match our Optional expression template
+    export type OptionalDefKeys<Def extends object> = {
+        // For each key of Def...
+        [Key in keyof Def]: Def[Key] extends  // If the corresponding value from Def ends with "?"...
+        `${string}?`
+            ? // Map the key to itself (e.g. {optionalKey: "number?"} => {optionalKey: "optionalKey"}).
+              Key
+            : // Map the key to never to exclude it from the result (e.g. {requiredKey: "number"} => {requiredKey: never}).
+              never
+        // Extract all values (other than never) from the result, yielding the set of keys whose values end in "?"
+    }[keyof Def]
 
     // This is just a trick to force TS to eagerly evaluate generics, improving type hints
     export type Evaluate<T> = T extends object
@@ -92,8 +97,13 @@ export namespace TakingShape {
             : // Else, since our parser only understands strings and objects (for now!), return an error.
               `Error: Definitions must be strings or objects whose leaves are strings.`
 
-    // Allows TS to infer the exact type of an object passed to a function
-    export type Narrow<T> = {
+    /** Allows TS to infer the exact type of an object passed to a function, so that when a definition like:
+     *      {prop: "string|number[]?"}
+     *  is passed through a parameter, its type is not widened to:
+     *      {prop: string}
+     *  It's critical we avoid this behavior so that the original definition is preserved.
+     **/
+    type Narrow<T> = {
         [K in keyof T]: T[K] extends [] // Nonsense required to appease the type inference gods
             ? T[K]
             : T[K] extends object
@@ -102,8 +112,9 @@ export namespace TakingShape {
     }
 
     const parse = <Def>(definition: Validate<Narrow<Def>>): TypeOf<Def> => {
-        // Allows extraction of a type from an arbitrary chain of props
-        const typeDefProxy: any = new Proxy({}, { get: () => typeDefProxy })
+        // Create a proxy that returns itself as the value of any prop
+        const typeDefProxy = new Proxy({}, { get: () => typeDefProxy })
+        // By returning this value, types can be extracted from arbitrary chains of props without throwing at runtime
         return typeDefProxy
     }
 

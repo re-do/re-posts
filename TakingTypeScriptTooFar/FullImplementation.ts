@@ -102,30 +102,29 @@ type ValidateFragment<
     ? Root
     : `Error: ${Fragment} is not a valid expression.`
 
-const parse = <Space>(
+const compile = <Space>(
     space: Validate<Narrow<Space>, Space>
 ): TypeOf<Space, Space> => {
-    // Allows extraction of a type from an arbitrary chain of props
     const typeDefProxy: any = new Proxy({}, { get: () => typeDefProxy })
     return typeDefProxy
 }
 
-const types = parse({
+const { category } = compile({
     category: {
         name: "string",
         subcategories: "category[]"
     }
 })
 
-type Category = typeof types.category
+type Category = typeof category
 
-const category: Category = {
+const categoryData: Category = {
     name: "Good",
     // @ts-expect-error
     subcategories: [{ name: "Bad", subsandwiches: [] }]
 }
 
-const space = parse({
+const types = compile({
     user: {
         name: "string",
         friends: "user[]",
@@ -141,4 +140,11 @@ const space = parse({
     }
 })
 
-type User = typeof space.user
+type User = typeof types.user
+
+types.user.groups[0].members[0].friends[0].friends[0] = {
+    name: "Cody McCodeface",
+    friends: [],
+    // @ts-expect-error
+    groups: [{ members: [], category: { name: "Coders" } }]
+}

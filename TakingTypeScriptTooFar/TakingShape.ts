@@ -103,7 +103,7 @@ export namespace TakingShape {
      *      {prop: string}
      *  It's critical we avoid this behavior so that the original definition is preserved.
      **/
-    type Narrow<T> = {
+    export type Narrow<T> = {
         [K in keyof T]: T[K] extends [] // Nonsense required to appease the type inference gods
             ? T[K]
             : T[K] extends object

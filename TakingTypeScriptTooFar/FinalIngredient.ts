@@ -75,7 +75,7 @@ export namespace FinalIngredient {
         return typeDefProxy
     }
 
-    const types = parse({
+    const types = compile({
         category: {
             name: "string",
             subcategories: "category[]"
@@ -90,7 +90,7 @@ export namespace FinalIngredient {
         subcategories: [{ name: "Bad", subsandwiches: [] }]
     }
 
-    const space = parse({
+    const space = compile({
         user: {
             name: "string",
             friends: "user[]",

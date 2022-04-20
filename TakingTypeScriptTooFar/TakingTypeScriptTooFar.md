@@ -448,17 +448,19 @@ const types = parse({
 
 Mousing over the resulting type in VSCode looks like this:
 
-![CategoryInferredType](./CategoryTypeScreenshot.png)
+<img src="./CategoryTypeScreenshot.png" alt="Inferred Category Type" style="max-width:300px">
 
 At first I wasn't sure to make of this; the `...` is definitely a little sus. Will TypeScript still validate that each element of `subcategories` conforms to the root `category` type?
 
-Turns out, VSCode just uses ellipses as shorthand for "we've already seen this type." Here's what it looks like if we make a mistake in one of our subcategory definitions:
+Turns out, VSCode just uses ellipses to denote nested recursive types. Here's what it looks like if we make a mistake in one of our subcategory definitions:
 
-![CategoryInferredType](./CategoryAssignmentScreenshot.png)
+<img src="./CategoryAssignmentScreenshot.png" alt="Category Assignment Error" style="max-width:400px">
 
-Mousing over the `subsandwiches` yields the expected Type Error: "'subsandwiches' does not exist in type '{ name: string; subcategories: ...[]; }'".
+Mousing over the `subsandwiches` key yields the expected type error:
 
-What if we add a couple more recursive and/or cyclic definitions to our space? Does our solution hold up?
+`'subsandwiches' does not exist in type '{ name: string; subcategories: ...[]; }'`
+
+What if we add a couple more recursive and cyclic definitions to our Space? Does our solution hold up?
 
 ```ts
 const types = parse({
@@ -478,15 +480,15 @@ const types = parse({
 })
 ```
 
-Even definitions like these are validated and can be used to precisely infer types:
+Even definitions like these are validated and can be used to precisely infer types. If you make a mistake, you'll get immediate feedback from a descriptive type error:
 
-![DefinitionValidationError](./ValidationError.png)
-_If you make a mistake in any of your definitions, you'll still get descriptive type errors_
+<img src="./ValidationError.png" alt="Validation Error" style="max-width:500px;">
 
-![UserInferredType](./UserTypeScreenshot.png)
-_Otherewise, TypeScript will happily calculate recursive types like these to whatever depth is needed_
+Otherewise, TypeScript will happily calculate recursive types like these to whatever depth the situation requires:
 
-As it turns out, reports of TypeScript's limitations were greatly exaggerated. That said, all we've done is build a proof of concept that TypeScript types can be accurately inferred from simple definitions written using objects and strings. To use this in place of one of the existing solutions for validation, we still need a way to parse all of the syntax we've defined at runtime so we can use it to validate data.
+<img src="./UserAssignment.png" alt="User Type Error" style="max-width:800px;">
+
+As it turns out, reports of TypeScript's limitations were greatly exaggerated. That said, all we've done is build a proof of concept that types can be accurately inferred from definitions written using objects and strings. To use this in place of one of the existing solutions for validation, we still need a way to parse all of the syntax we've defined at runtime so we can use it to validate data.
 
 <div style="display:flex;align-items:baseline;white-space:pre">
     <p>Let's jump straight into it. </p>
@@ -497,17 +499,17 @@ As it turns out, reports of TypeScript's limitations were greatly exaggerated. T
 
 Don't worry- despite the level of derangment my font preferences and obsession with generics might suggest, I wouldn't ask you to bear with me through all of that after an entire article of type gymnastics.
 
-The truth is, not only do I love TypeScript, I love its devs. My goal is to build tools that make your job easier, not to subject you to the horrors of debugging the 82-million-character type error I encountered while trying to do it. If, like me, you enjoy the nuances and complexities of bending the type system to your will, I'm [always looking for passionate contributors](https://github.com/re-do/re-po/blob/main/CONTRIBUTING.md)!
+Yes, I'm a big fan of TypeScript, but I'm also a big fan of its devs. My goal is to build tools that make your job easier, not to subject you to the horrors of debugging the 82-million-character type error I encountered while trying to do it. If, like me, you enjoy the nuances and complexities of bending the type system to your will, I'm [always looking for passionate contributors](https://github.com/re-do/re-po/blob/main/CONTRIBUTING.md)!
 
 If instead, you'd prefer to purge this article from your memory and never want to see a generic type again... well, first of all I'm impressed you made it this far. But more importantly, _that's ok_- you shouldn't need to be a TypeScript expert just to avoid duplicating your definitions and you definitely shouldn't need to figure out which three functions you need to import and chain together from your validation library to represent an optional string array when you can just use TypeScript's own syntax to express a clearer type in under 10 characters as `"string[]?"`.
 
 With those goals in mind, I'd like to introduce the TypeScript community to a package I've been working on called `@re-/model`. The package is brand new, but it already supports:
 
--   All of the type syntax we covered in the the article plus:
+-   All of the type syntax we covered in the the article plus...
 
     -   All 14 built-in TypeScript keyword types like `object` and `any` (bonus points if you can them all)
     -   All built-in TypeScript literal types like `true`, `"yes"`, `42`, and `99999n`
-    -   More expressions including Intersections (`A&B`) and Arrow Functions (`(A,B)=>C`)
+    -   More expressions like Intersections (`A&B`) and Arrow Functions (`(A,B)=>C`)
 
 -   Extended syntax for validation that falls outside the scope of the type system, like...
     -   Is a string a properly formatted email address?

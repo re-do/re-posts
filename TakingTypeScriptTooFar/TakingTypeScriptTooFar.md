@@ -518,4 +518,6 @@ With those goals in mind, I'd like to introduce the TypeScript community to a pa
 
 All of this is covered by 300+ unit tests so that even the most complex recursive definitions are typed and validated just the way you'd expect.
 
-I believe we're just scratching the surface of what's possible when a single type definition can take you all the way from your editor to prod. From GraphQL to text files, DBs to state management, the applications for universal types seem limitless. But there's still one thing missing...
+I believe we're just scratching the surface of what's possible in a world where you can rely on a single type definition from your editor to prod. From GraphQL to DBs to state management, the ability to model data in a way that transcends the boundaries of TypeScript and JavaScript has enormous potential to help us write cleaner, more consistent code than ever before. Library authors across the stack can reuse your models to offer type-safe APIs and automatic validation with no config required. Even seemingly disparate challenges like generating test data or analyzing schemas could be massively simplified by leveraging the structures and relationships models establish.
+
+everything they need about how to But there's still one thing missing- you!

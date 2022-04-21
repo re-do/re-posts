@@ -37,8 +37,10 @@ export namespace ExpressingYourself {
         return null as any
     }
 
+    // type inferred as string | number[] | undefined
     const goodType = parseExpression("string|number[]?")
 
+    // Argument of type '"string|numbr[]?"' is not assignable to parameter of type '"Error: numbr is not a valid expression."'
     // @ts-expect-error
     const badType = parseExpression("string|numbr[]?")
 }

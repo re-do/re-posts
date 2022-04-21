@@ -1,4 +1,4 @@
-# TypeScript to its limits: Can types parse their own syntax?
+# Taking TypeScript to its limits: Can types parse their own syntax?
 
 ![82-million character type error](./82MillionCharacterTsError.png)
 
@@ -513,6 +513,6 @@ With those goals in mind, I'd like to introduce the TypeScript community to a pa
 
 All of this is covered by 300+ unit tests so that even the most complex recursive definitions are typed and validated just the way you'd expect.
 
-I believe we're just scratching the surface of what's possible in a world where you can rely on a single type definition from your editor to production. From GraphQL to DBs to state management, the ability to model data in a way that transcends the boundaries between TypeScript and JavaScript has enormous potential to help us write cleaner, more consistent code than ever before. Library authors across the stack can reuse your models to offer type-safe APIs and automatic validation with no config required. Even seemingly disparate challenges like generating test data or analyzing schemas can be massively simplified by leveraging the structures and relationships your models establish.
+I believe we're just scratching the surface of what's possible in a world where you can rely on a single type definition from your editor to production. From GraphQL to DBs to state management, the ability to model data in a way that transcends the boundaries between TypeScript and JavaScript has enormous potential to make writing clear, consistent code easier than ever before. Library authors across the stack can reuse your models to offer type-safe APIs and automatic validation with no config required. Even seemingly disparate challenges like generating test data or analyzing schemas can be massively simplified by leveraging the structures and relationships your models establish.
 
 But there's still one thing missing- you!
